@@ -1,4 +1,3 @@
-import { Subscription } from '@prisma/client';
 import {
   SubscriptionRepository,
   RepositoryRepository,
@@ -104,7 +103,7 @@ export class SubscriptionService {
     return subs.map((sub) => this.formatResponse(sub, sub.repository.fullName));
   }
 
-  private formatResponse(sub: Subscription, repoFullName: string): SubscriptionResponse {
+  private formatResponse(sub: SubscriptionWithRepo, repoFullName: string): SubscriptionResponse {
     return {
       id: sub.id,
       email: sub.email,
