@@ -1,12 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Repository, Subscription } from '@prisma/client';
 import { SubscriptionService } from '../../src/modules/subscriptions/subscription.service';
 import {
   SubscriptionRepository,
   RepositoryRepository,
+  SubscriptionWithRepo,
 } from '../../src/modules/subscriptions/subscription.repository';
 import { GitHubService } from '../../src/modules/github/github.service';
+import type { GitHubRepo } from '../../src/modules/github/github.client';
 import { NotifierService } from '../../src/modules/notifier/notifier.service';
 import { BadRequestError, ConflictError, NotFoundError } from '../../src/shared/errors/app-error';
+
+const stubGitHubRepo: GitHubRepo = {
+  full_name: 'golang/go',
+  description: '',
+  html_url: 'https://github.com/golang/go',
+  stargazers_count: 0,
+};
 
 function makeRepo(overrides = {}) {
   return {
@@ -90,11 +100,11 @@ describe('SubscriptionService.subscribe', () => {
     const repo = makeRepo();
     const sub = makeSub();
 
-    vi.mocked(mocks.githubService.verifyRepo).mockResolvedValue({} as any);
+    vi.mocked(mocks.githubService.verifyRepo).mockResolvedValue(stubGitHubRepo);
     vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(null);
-    vi.mocked(mocks.repositoryRepo.upsert).mockResolvedValue(repo as any);
+    vi.mocked(mocks.repositoryRepo.upsert).mockResolvedValue(repo as Repository);
     vi.mocked(mocks.subscriptionRepo.findByEmailAndRepo).mockResolvedValue(null);
-    vi.mocked(mocks.subscriptionRepo.create).mockResolvedValue(sub as any);
+    vi.mocked(mocks.subscriptionRepo.create).mockResolvedValue(sub as Subscription);
 
     await service.subscribe({ email: 'user@example.com', repo: 'golang/go' });
 
@@ -112,10 +122,10 @@ describe('SubscriptionService.subscribe', () => {
     const repo = makeRepo();
     const existing = makeSub({ confirmedAt: null, isActive: false });
 
-    vi.mocked(mocks.githubService.verifyRepo).mockResolvedValue({} as any);
+    vi.mocked(mocks.githubService.verifyRepo).mockResolvedValue(stubGitHubRepo);
     vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(null);
-    vi.mocked(mocks.repositoryRepo.upsert).mockResolvedValue(repo as any);
-    vi.mocked(mocks.subscriptionRepo.findByEmailAndRepo).mockResolvedValue(existing as any);
+    vi.mocked(mocks.repositoryRepo.upsert).mockResolvedValue(repo as Repository);
+    vi.mocked(mocks.subscriptionRepo.findByEmailAndRepo).mockResolvedValue(existing as Subscription);
 
     await service.subscribe({ email: 'user@example.com', repo: 'golang/go' });
 
@@ -127,10 +137,10 @@ describe('SubscriptionService.subscribe', () => {
     const repo = makeRepo();
     const existing = makeSub({ isActive: true, confirmedAt: new Date() });
 
-    vi.mocked(mocks.githubService.verifyRepo).mockResolvedValue({} as any);
+    vi.mocked(mocks.githubService.verifyRepo).mockResolvedValue(stubGitHubRepo);
     vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(null);
-    vi.mocked(mocks.repositoryRepo.upsert).mockResolvedValue(repo as any);
-    vi.mocked(mocks.subscriptionRepo.findByEmailAndRepo).mockResolvedValue(existing as any);
+    vi.mocked(mocks.repositoryRepo.upsert).mockResolvedValue(repo as Repository);
+    vi.mocked(mocks.subscriptionRepo.findByEmailAndRepo).mockResolvedValue(existing as Subscription);
 
     await expect(
       service.subscribe({ email: 'user@example.com', repo: 'golang/go' }),
@@ -176,8 +186,12 @@ describe('SubscriptionService.confirm', () => {
 
   it('confirms subscription with valid token', async () => {
     const sub = makeSub({ confirmedAt: null });
-    vi.mocked(mocks.subscriptionRepo.findByConfirmToken).mockResolvedValue(sub as any);
-    vi.mocked(mocks.subscriptionRepo.confirm).mockResolvedValue({ ...sub, isActive: true, confirmedAt: new Date() } as any);
+    vi.mocked(mocks.subscriptionRepo.findByConfirmToken).mockResolvedValue(sub as Subscription);
+    vi.mocked(mocks.subscriptionRepo.confirm).mockResolvedValue({
+      ...sub,
+      isActive: true,
+      confirmedAt: new Date(),
+    } as Subscription);
 
     await expect(service.confirm('confirm-token-abc')).resolves.not.toThrow();
     expect(mocks.subscriptionRepo.confirm).toHaveBeenCalledWith('sub-1');
@@ -190,7 +204,7 @@ describe('SubscriptionService.confirm', () => {
 
   it('is idempotent if already confirmed', async () => {
     const sub = makeSub({ confirmedAt: new Date() });
-    vi.mocked(mocks.subscriptionRepo.findByConfirmToken).mockResolvedValue(sub as any);
+    vi.mocked(mocks.subscriptionRepo.findByConfirmToken).mockResolvedValue(sub as Subscription);
 
     await expect(service.confirm('confirm-token-abc')).resolves.not.toThrow();
     expect(mocks.subscriptionRepo.confirm).not.toHaveBeenCalled();
@@ -213,7 +227,7 @@ describe('SubscriptionService.unsubscribe', () => {
 
   it('unsubscribes with valid token', async () => {
     const sub = makeSub();
-    vi.mocked(mocks.subscriptionRepo.deactivateByUnsubscribeToken).mockResolvedValue(sub as any);
+    vi.mocked(mocks.subscriptionRepo.deactivateByUnsubscribeToken).mockResolvedValue(sub as Subscription);
     await expect(service.unsubscribe('unsub-token-xyz')).resolves.not.toThrow();
   });
 
@@ -240,7 +254,7 @@ describe('SubscriptionService.getSubscriptionsByEmail', () => {
   it('returns active confirmed subscriptions for email', async () => {
     const repo = makeRepo();
     const sub = { ...makeSub({ isActive: true, confirmedAt: new Date() }), repository: repo };
-    vi.mocked(mocks.subscriptionRepo.findActiveByEmail).mockResolvedValue([sub as any]);
+    vi.mocked(mocks.subscriptionRepo.findActiveByEmail).mockResolvedValue([sub as SubscriptionWithRepo]);
 
     const result = await service.getSubscriptionsByEmail('user@example.com');
 

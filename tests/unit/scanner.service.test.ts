@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { Repository, Subscription } from '@prisma/client';
 import { ScannerService } from '../../src/modules/scanner/scanner.service';
 import {
   RepositoryRepository,
   SubscriptionRepository,
 } from '../../src/modules/subscriptions/subscription.repository';
 import { GitHubService } from '../../src/modules/github/github.service';
+import type { GitHubRelease } from '../../src/modules/github/github.client';
 import { NotifierService } from '../../src/modules/notifier/notifier.service';
 import { RateLimitError } from '../../src/shared/errors/app-error';
 
@@ -37,7 +39,7 @@ function makeSub(overrides = {}) {
   };
 }
 
-function makeRelease(tagName: string) {
+function makeRelease(tagName: string): GitHubRelease {
   return {
     tag_name: tagName,
     name: `Release ${tagName}`,
@@ -88,10 +90,10 @@ describe('ScannerService.scan', () => {
     const repo = makeRepo({ lastSeenTag: 'v1.0.0' });
     const sub = makeSub();
 
-    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as any]);
-    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v1.1.0') as any);
-    vi.mocked(mocks.subscriptionRepo.findConfirmedByRepositoryId).mockResolvedValue([sub as any]);
-    vi.mocked(mocks.repositoryRepo.updateLastSeenTag).mockResolvedValue(repo as any);
+    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as Repository]);
+    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v1.1.0'));
+    vi.mocked(mocks.subscriptionRepo.findConfirmedByRepositoryId).mockResolvedValue([sub as Subscription]);
+    vi.mocked(mocks.repositoryRepo.updateLastSeenTag).mockResolvedValue(repo as Repository);
     vi.mocked(mocks.repositoryRepo.updateLastCheckedAt).mockResolvedValue();
 
     await service.scan();
@@ -110,8 +112,8 @@ describe('ScannerService.scan', () => {
   it('does not notify when tag has not changed', async () => {
     const repo = makeRepo({ lastSeenTag: 'v1.0.0' });
 
-    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as any]);
-    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v1.0.0') as any);
+    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as Repository]);
+    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v1.0.0'));
     vi.mocked(mocks.repositoryRepo.updateLastCheckedAt).mockResolvedValue();
 
     await service.scan();
@@ -123,7 +125,7 @@ describe('ScannerService.scan', () => {
   it('does not notify when repo has no releases', async () => {
     const repo = makeRepo({ lastSeenTag: null });
 
-    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as any]);
+    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as Repository]);
     vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(null);
     vi.mocked(mocks.repositoryRepo.updateLastCheckedAt).mockResolvedValue();
 
@@ -135,9 +137,9 @@ describe('ScannerService.scan', () => {
   it('records initial tag without notifying (lastSeenTag is null)', async () => {
     const repo = makeRepo({ lastSeenTag: null });
 
-    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as any]);
-    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v1.0.0') as any);
-    vi.mocked(mocks.repositoryRepo.updateLastSeenTag).mockResolvedValue(repo as any);
+    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as Repository]);
+    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v1.0.0'));
+    vi.mocked(mocks.repositoryRepo.updateLastSeenTag).mockResolvedValue(repo as Repository);
     vi.mocked(mocks.repositoryRepo.updateLastCheckedAt).mockResolvedValue();
 
     await service.scan();
@@ -149,7 +151,7 @@ describe('ScannerService.scan', () => {
   it('throws RateLimitError and stops the cycle on GitHub 429', async () => {
     const repo = makeRepo();
 
-    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as any]);
+    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as Repository]);
     vi.mocked(mocks.githubService.getLatestRelease).mockRejectedValue(new RateLimitError());
     vi.mocked(mocks.repositoryRepo.updateLastCheckedAt).mockResolvedValue();
 
@@ -162,10 +164,13 @@ describe('ScannerService.scan', () => {
     const sub1 = makeSub({ id: 'sub-1', email: 'a@example.com' });
     const sub2 = makeSub({ id: 'sub-2', email: 'b@example.com' });
 
-    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as any]);
-    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v2.0.0') as any);
-    vi.mocked(mocks.subscriptionRepo.findConfirmedByRepositoryId).mockResolvedValue([sub1 as any, sub2 as any]);
-    vi.mocked(mocks.repositoryRepo.updateLastSeenTag).mockResolvedValue(repo as any);
+    vi.mocked(mocks.repositoryRepo.findAllWithConfirmedSubscriptions).mockResolvedValue([repo as Repository]);
+    vi.mocked(mocks.githubService.getLatestRelease).mockResolvedValue(makeRelease('v2.0.0'));
+    vi.mocked(mocks.subscriptionRepo.findConfirmedByRepositoryId).mockResolvedValue([
+      sub1 as Subscription,
+      sub2 as Subscription,
+    ]);
+    vi.mocked(mocks.repositoryRepo.updateLastSeenTag).mockResolvedValue(repo as Repository);
     vi.mocked(mocks.repositoryRepo.updateLastCheckedAt).mockResolvedValue();
 
     vi.mocked(mocks.notifierService.sendReleaseNotification)
