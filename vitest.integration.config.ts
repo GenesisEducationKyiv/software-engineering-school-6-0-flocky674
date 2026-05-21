@@ -4,10 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/unit/**/*.test.ts'],
-    coverage: {
-      reporter: ['text', 'lcov'],
-      include: ['src/**/*.ts'],
-    },
+    include: ['tests/integration/**/*.test.ts'],
+    hookTimeout: 30_000,
+    testTimeout: 30_000,
   },
 });

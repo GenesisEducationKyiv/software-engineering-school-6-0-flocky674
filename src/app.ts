@@ -6,12 +6,19 @@ import { SubscriptionService } from './modules/subscriptions/subscription.servic
 import { SubscriptionRepository, RepositoryRepository } from './modules/subscriptions/subscription.repository';
 import { GitHubService } from './modules/github/github.service';
 import { githubClient } from './modules/github/github.client';
-import { notifierService } from './modules/notifier/notifier.service';
+import { NotifierService, notifierService as defaultNotifierService } from './modules/notifier/notifier.service';
 import { AppError } from './shared/errors/app-error';
 import { config } from './config/env';
 import logger from './shared/utils/logger';
 
-export function buildApp(): FastifyInstance {
+interface AppDependencies {
+  subscriptionRepo?: SubscriptionRepository;
+  repositoryRepo?: RepositoryRepository;
+  githubService?: GitHubService;
+  notifierService?: NotifierService;
+}
+
+export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   const fastify = Fastify({ logger: false });
 
   if (config.apiKey) {
@@ -44,9 +51,10 @@ export function buildApp(): FastifyInstance {
 
   fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
-  const subscriptionRepo = new SubscriptionRepository();
-  const repositoryRepo = new RepositoryRepository();
-  const githubService = new GitHubService(githubClient);
+  const subscriptionRepo = dependencies.subscriptionRepo ?? new SubscriptionRepository();
+  const repositoryRepo = dependencies.repositoryRepo ?? new RepositoryRepository();
+  const githubService = dependencies.githubService ?? new GitHubService(githubClient);
+  const notifierService = dependencies.notifierService ?? defaultNotifierService;
   const subscriptionService = new SubscriptionService(
     subscriptionRepo,
     repositoryRepo,
