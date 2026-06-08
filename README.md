@@ -8,6 +8,31 @@ Node.js, Fastify, Prisma, PostgreSQL, node-cron, Nodemailer
 
 Fastify замість Nest.js - простіше розібратись що відбувається. Prisma для міграцій і запитів до БД. node-cron для фонової перевірки релізів.
 
+## Архітектура
+
+Застосунок розділений на модулі з окремими зонами відповідальності:
+
+| Модуль | Відповідальність |
+|---|---|
+| `subscriptions` | API підписок, підтвердження, відписка, читання активних підписок |
+| `scanner` | Фонове сканування GitHub релізів і пошук нових тегів |
+| `github` | Інтеграція з GitHub API |
+| `notifier` service | Окремий мікросервіс для email templates і SMTP-відправки |
+
+Моноліт `app` не працює напряму з SMTP. Він викликає `notifier` через HTTP:
+
+```text
+app :3000 -> notifier :3002 -> SMTP/MailHog
+```
+
+Публічний API залишається в `app`, а `notifier` має внутрішній API:
+
+| Метод | Endpoint | Опис |
+|---|---|---|
+| `GET` | `/health` | Health check мікросервісу |
+| `POST` | `/api/emails/confirmation` | Надсилання confirmation email |
+| `POST` | `/api/emails/release` | Надсилання release notification email |
+
 ## Запуск
 
 ```bash
@@ -45,17 +70,13 @@ npm run dev
 ```env
 DATABASE_URL=postgresql://user@localhost:5432/github_release_notifier
 GITHUB_TOKEN=
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=re_xxxxxxxxxx
-EMAIL_FROM=onboarding@resend.dev
+NOTIFIER_SERVICE_URL=http://localhost:3002
 APP_URL=http://localhost:3000
 SCAN_INTERVAL_MINUTES=5
 API_KEY=
 ```
 
-Для email використовував Resend. На безкоштовному плані листи йдуть тільки на власний email — для інших потрібен свій домен.
+SMTP налаштування тепер належать `services/notifier/.env.example`, бо email delivery винесений в окремий сервіс.
 
 ## Тести
 

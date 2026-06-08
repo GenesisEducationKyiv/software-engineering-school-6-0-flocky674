@@ -6,7 +6,7 @@ import { SubscriptionService } from './modules/subscriptions/subscription.servic
 import { SubscriptionRepository, RepositoryRepository } from './modules/subscriptions/subscription.repository';
 import { GitHubService } from './modules/github/github.service';
 import { githubClient } from './modules/github/github.client';
-import { notifierService } from './modules/notifier/notifier.service';
+import { notifierClient } from './modules/notifier/notifier.client';
 import { AppError } from './shared/errors/app-error';
 import { config } from './config/env';
 import logger from './shared/utils/logger';
@@ -51,7 +51,7 @@ export function buildApp(): FastifyInstance {
     subscriptionRepo,
     repositoryRepo,
     githubService,
-    notifierService,
+    notifierClient,
   );
 
   buildSubscriptionRoutes(fastify, subscriptionService);

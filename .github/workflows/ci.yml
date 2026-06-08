@@ -49,8 +49,22 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/github_release_notifier_test
           GITHUB_TOKEN: ''
-          SMTP_HOST: localhost
-          SMTP_PORT: 1025
-          EMAIL_FROM: test@example.com
+          NOTIFIER_SERVICE_URL: http://localhost:3002
           APP_URL: http://localhost:3000
           API_KEY: ''
+
+      - name: Install notifier dependencies
+        working-directory: services/notifier
+        run: npm ci
+
+      - name: Lint notifier service
+        working-directory: services/notifier
+        run: npm run lint
+
+      - name: Test notifier service
+        working-directory: services/notifier
+        run: npm test
+
+      - name: Build notifier service
+        working-directory: services/notifier
+        run: npm run build
