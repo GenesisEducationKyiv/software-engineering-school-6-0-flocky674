@@ -10,13 +10,45 @@ import { notifierService } from './modules/notifier/notifier.service';
 import { AppError } from './shared/errors/app-error';
 import { config } from './config/env';
 import logger from './shared/utils/logger';
+import {
+  getMetrics,
+  metricsContentType,
+  recordHttpRequest,
+} from './shared/metrics/prometheus';
+
+const requestStartedAt = new WeakMap<object, bigint>();
 
 export function buildApp(): FastifyInstance {
   const fastify = Fastify({ logger: false });
 
+  fastify.addHook('onRequest', async (request) => {
+    requestStartedAt.set(request, process.hrtime.bigint());
+  });
+
+  fastify.addHook('onResponse', async (request, reply) => {
+    const startedAt = requestStartedAt.get(request);
+    const durationSeconds = startedAt
+      ? Number(process.hrtime.bigint() - startedAt) / 1_000_000_000
+      : 0;
+    const route = request.routeOptions.url ?? request.url.split('?')[0];
+
+    recordHttpRequest(request.method, route, reply.statusCode, durationSeconds);
+    logger.info(
+      {
+        requestId: request.id,
+        method: request.method,
+        route,
+        url: request.url,
+        statusCode: reply.statusCode,
+        durationMs: Math.round(durationSeconds * 1000),
+      },
+      'http request completed',
+    );
+  });
+
   if (config.apiKey) {
     fastify.addHook('onRequest', async (request, reply) => {
-      const publicPaths = ['/health', '/api/confirm/', '/api/unsubscribe/', '/'];
+      const publicPaths = ['/health', '/metrics', '/api/confirm/', '/api/unsubscribe/', '/'];
       const isPublic = publicPaths.some((p) => request.url.startsWith(p));
       if (isPublic) return;
 
@@ -43,6 +75,10 @@ export function buildApp(): FastifyInstance {
   });
 
   fastify.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  fastify.get('/metrics', async (_request, reply) => {
+    reply.header('Content-Type', metricsContentType);
+    return getMetrics();
+  });
 
   const subscriptionRepo = new SubscriptionRepository();
   const repositoryRepo = new RepositoryRepository();
