@@ -4,9 +4,9 @@
 
 ## Стек
 
-Node.js, Fastify, Prisma, PostgreSQL, node-cron, Nodemailer
+Node.js, Fastify, Prisma, PostgreSQL, node-cron, Nodemailer, RabbitMQ
 
-Fastify замість Nest.js - простіше розібратись що відбувається. Prisma для міграцій і запитів до БД. node-cron для фонової перевірки релізів.
+Fastify замість Nest.js - простіше розібратись що відбувається. Prisma для міграцій і запитів до БД. node-cron для фонової перевірки релізів. RabbitMQ як message broker між монолітом і notifier-сервісом.
 
 ## Архітектура
 
@@ -19,13 +19,24 @@ Fastify замість Nest.js - простіше розібратись що в
 | `github` | Інтеграція з GitHub API |
 | `notifier` service | Окремий мікросервіс для email templates і SMTP-відправки |
 
-Моноліт `app` не працює напряму з SMTP. Він викликає `notifier` через HTTP:
+Моноліт `app` не працює напряму з SMTP і не викликає `notifier` синхронно. Замість цього він публікує команди на відправку email у message broker (RabbitMQ), а `notifier` їх консьюмить і надсилає листи:
 
 ```text
-app :3000 -> notifier :3002 -> SMTP/MailHog
+app :3000 -> RabbitMQ (exchange "notifications") -> notifier :3002 -> SMTP/MailHog
 ```
 
-Публічний API залишається в `app`, а `notifier` має внутрішній API:
+Контракт повідомлень:
+
+| Параметр | Значення |
+|---|---|
+| Exchange | `notifications` (topic, durable) |
+| Queue | `notifications.emails` (durable) |
+| Routing keys | `email.confirmation`, `email.release` |
+| Формат | `{ "type": "...", "data": { ... } }` |
+
+Перевагою такого підходу є слабка звʼязність: моноліт не чекає на відправку email і не падає, якщо `notifier` тимчасово недоступний — повідомлення лишається в черзі.
+
+Публічний API залишається в `app`. `notifier` споживає команди з брокера, а також зберігає внутрішній HTTP API:
 
 | Метод | Endpoint | Опис |
 |---|---|---|
@@ -39,6 +50,15 @@ app :3000 -> notifier :3002 -> SMTP/MailHog
 cp .env.example .env
 docker compose up --build
 ```
+
+Після старту доступні:
+
+| Сервіс | URL |
+|---|---|
+| App | http://localhost:3000 |
+| Notifier | http://localhost:3002 |
+| RabbitMQ Management UI | http://localhost:15672 (guest/guest) |
+| MailHog | http://localhost:8025 |
 
 Локально без Docker:
 
@@ -71,6 +91,7 @@ npm run dev
 DATABASE_URL=postgresql://user@localhost:5432/github_release_notifier
 GITHUB_TOKEN=
 NOTIFIER_SERVICE_URL=http://localhost:3002
+RABBITMQ_URL=amqp://localhost:5672
 APP_URL=http://localhost:3000
 SCAN_INTERVAL_MINUTES=5
 API_KEY=

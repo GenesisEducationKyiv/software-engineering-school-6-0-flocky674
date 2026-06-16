@@ -11,6 +11,7 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/github_release_notifier
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       NOTIFIER_SERVICE_URL: http://notifier:3002
+      RABBITMQ_URL: amqp://rabbitmq:5672
       APP_URL: http://localhost:3000
       SCAN_INTERVAL_MINUTES: ${SCAN_INTERVAL_MINUTES:-5}
       API_KEY: ${API_KEY:-}
@@ -18,7 +19,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      notifier:
+      rabbitmq:
         condition: service_healthy
     restart: unless-stopped
 
@@ -37,11 +38,15 @@ services:
       SMTP_USER: ''
       SMTP_PASS: ''
       EMAIL_FROM: no-reply@github-notifier.local
+      RABBITMQ_URL: amqp://rabbitmq:5672
       LOG_LEVEL: info
     depends_on:
-      - mailhog
+      mailhog:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:3002/health >/dev/null 2>&1']
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3002/health >/dev/null 2>&1']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -68,6 +73,18 @@ services:
     ports:
       - '1025:1025'   # SMTP
       - '8025:8025'   # Web UI for inspecting emails
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - '5672:5672'    # AMQP
+      - '15672:15672'  # Management UI
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:
