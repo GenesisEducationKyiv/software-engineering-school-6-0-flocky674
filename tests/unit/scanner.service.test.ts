@@ -7,7 +7,7 @@ import {
 } from '../../src/modules/subscriptions/subscription.repository';
 import { GitHubService } from '../../src/modules/github/github.service';
 import type { GitHubRelease } from '../../src/modules/github/github.client';
-import { NotifierService } from '../../src/modules/notifier/notifier.service';
+import { NotifierPort } from '../../src/modules/notifier/notifier.types';
 import { RateLimitError } from '../../src/shared/errors/app-error';
 
 function makeRepo(overrides = {}) {
@@ -67,7 +67,7 @@ function makeMocks() {
   const notifierService = {
     sendReleaseNotification: vi.fn(),
     sendConfirmationEmail: vi.fn(),
-  } as unknown as NotifierService;
+  } as unknown as NotifierPort;
 
   return { repositoryRepo, subscriptionRepo, githubService, notifierService };
 }

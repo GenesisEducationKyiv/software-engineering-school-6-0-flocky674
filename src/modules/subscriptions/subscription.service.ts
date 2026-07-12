@@ -4,7 +4,7 @@ import {
   SubscriptionWithRepo,
 } from './subscription.repository';
 import { GitHubService } from '../github/github.service';
-import { NotifierService } from '../notifier/notifier.service';
+import { NotifierPort } from '../notifier/notifier.types';
 import { parseRepo } from '../../shared/utils/parse-repo';
 import { BadRequestError, ConflictError, NotFoundError } from '../../shared/errors/app-error';
 
@@ -27,7 +27,7 @@ export class SubscriptionService {
     private readonly subscriptionRepo: SubscriptionRepository,
     private readonly repositoryRepo: RepositoryRepository,
     private readonly githubService: GitHubService,
-    private readonly notifierService: NotifierService,
+    private readonly notifierService: NotifierPort,
   ) {}
 
   async subscribe(input: CreateSubscriptionInput): Promise<void> {
