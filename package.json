@@ -7,7 +7,12 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts",
-    "test": "vitest run",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:integration": "sh scripts/run-integration-tests.sh",
+    "test:integration:run": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "playwright install chromium && playwright test",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
     "test:watch": "vitest",
     "lint": "eslint src tests --ext .ts",
     "migrate": "prisma migrate deploy",
@@ -29,6 +34,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20.11.30",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.14",
