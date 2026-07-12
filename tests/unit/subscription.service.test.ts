@@ -8,7 +8,7 @@ import {
 } from '../../src/modules/subscriptions/subscription.repository';
 import { GitHubService } from '../../src/modules/github/github.service';
 import type { GitHubRepo } from '../../src/modules/github/github.client';
-import { NotifierService } from '../../src/modules/notifier/notifier.service';
+import { NotifierPort } from '../../src/modules/notifier/notifier.types';
 import { BadRequestError, ConflictError, NotFoundError } from '../../src/shared/errors/app-error';
 
 const stubGitHubRepo: GitHubRepo = {
@@ -77,7 +77,7 @@ function makeMocks() {
   const notifierService = {
     sendConfirmationEmail: vi.fn(),
     sendReleaseNotification: vi.fn(),
-  } as unknown as NotifierService;
+  } as unknown as NotifierPort;
 
   return { subscriptionRepo, repositoryRepo, githubService, notifierService };
 }

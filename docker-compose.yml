@@ -11,11 +11,8 @@ services:
       HOST: 0.0.0.0
       DATABASE_URL: postgresql://postgres:postgres@db:5432/github_release_notifier
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      SMTP_HOST: mailhog
-      SMTP_PORT: 1025
-      SMTP_USER: ''
-      SMTP_PASS: ''
-      EMAIL_FROM: no-reply@github-notifier.local
+      NOTIFIER_SERVICE_URL: http://notifier:3002
+      RABBITMQ_URL: amqp://rabbitmq:5672
       APP_URL: http://localhost:3000
       SCAN_INTERVAL_MINUTES: ${SCAN_INTERVAL_MINUTES:-5}
       API_KEY: ${API_KEY:-}
@@ -26,6 +23,37 @@ services:
         condition: service_healthy
       logstash:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notifier:
+    build:
+      context: ./services/notifier
+      dockerfile: Dockerfile
+    ports:
+      - '3002:3002'
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      HOST: 0.0.0.0
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      SMTP_USER: ''
+      SMTP_PASS: ''
+      EMAIL_FROM: no-reply@github-notifier.local
+      RABBITMQ_URL: amqp://rabbitmq:5672
+      LOG_LEVEL: info
+    depends_on:
+      mailhog:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3002/health >/dev/null 2>&1']
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   db:
@@ -117,6 +145,18 @@ services:
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - '5672:5672'    # AMQP
+      - '15672:15672'  # Management UI
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:

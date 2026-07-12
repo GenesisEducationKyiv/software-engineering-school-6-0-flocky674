@@ -4,9 +4,45 @@
 
 ## Стек
 
-Node.js, Fastify, Prisma, PostgreSQL, node-cron, Nodemailer, Elasticsearch, Kibana, Prometheus, Grafana
+Node.js, Fastify, Prisma, PostgreSQL, node-cron, Nodemailer, RabbitMQ, Elasticsearch, Kibana, Prometheus, Grafana
 
-Fastify замість Nest.js - простіше розібратись що відбувається. Prisma для міграцій і запитів до БД. node-cron для фонової перевірки релізів.
+Fastify замість Nest.js - простіше розібратись що відбувається. Prisma для міграцій і запитів до БД. node-cron для фонової перевірки релізів. RabbitMQ як message broker між монолітом і notifier-сервісом.
+
+## Архітектура
+
+Застосунок розділений на модулі з окремими зонами відповідальності:
+
+| Модуль | Відповідальність |
+|---|---|
+| `subscriptions` | API підписок, підтвердження, відписка, читання активних підписок |
+| `scanner` | Фонове сканування GitHub релізів і пошук нових тегів |
+| `github` | Інтеграція з GitHub API |
+| `notifier` service | Окремий мікросервіс для email templates і SMTP-відправки |
+
+Моноліт `app` не працює напряму з SMTP і не викликає `notifier` синхронно. Замість цього він публікує команди на відправку email у message broker (RabbitMQ), а `notifier` їх консьюмить і надсилає листи:
+
+```text
+app :3000 -> RabbitMQ (exchange "notifications") -> notifier :3002 -> SMTP/MailHog
+```
+
+Контракт повідомлень:
+
+| Параметр | Значення |
+|---|---|
+| Exchange | `notifications` (topic, durable) |
+| Queue | `notifications.emails` (durable) |
+| Routing keys | `email.confirmation`, `email.release` |
+| Формат | `{ "type": "...", "data": { ... } }` |
+
+Перевагою такого підходу є слабка звʼязність: моноліт не чекає на відправку email і не падає, якщо `notifier` тимчасово недоступний — повідомлення лишається в черзі.
+
+Публічний API залишається в `app`. `notifier` споживає команди з брокера, а також зберігає внутрішній HTTP API:
+
+| Метод | Endpoint | Опис |
+|---|---|---|
+| `GET` | `/health` | Health check мікросервісу |
+| `POST` | `/api/emails/confirmation` | Надсилання confirmation email |
+| `POST` | `/api/emails/release` | Надсилання release notification email |
 
 ## Запуск
 
@@ -21,13 +57,13 @@ docker compose up --build
 |---|---|---|
 | App | http://localhost:3000 | Основний застосунок |
 | Metrics | http://localhost:3000/metrics | Prometheus endpoint |
+| Notifier | http://localhost:3002 | Мікросервіс email-розсилки |
+| RabbitMQ Management UI | http://localhost:15672 | Черги брокера (guest/guest) |
 | Elasticsearch | http://localhost:9200 | Сховище логів |
 | Kibana | http://localhost:5601 | Пошук і агрегація логів |
 | Prometheus | http://localhost:9090 | Збір RED-метрик |
-| Grafana | http://localhost:3001 | Dashboard з RED-метриками |
+| Grafana | http://localhost:3001 | Dashboard з RED-метриками (admin/admin) |
 | MailHog | http://localhost:8025 | Перегляд локальних email |
-
-Grafana логін: `admin`, пароль: `admin`.
 
 Локально без Docker:
 
@@ -84,17 +120,14 @@ curl http://localhost:3000/metrics
 ```env
 DATABASE_URL=postgresql://user@localhost:5432/github_release_notifier
 GITHUB_TOKEN=
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=re_xxxxxxxxxx
-EMAIL_FROM=onboarding@resend.dev
+NOTIFIER_SERVICE_URL=http://localhost:3002
+RABBITMQ_URL=amqp://localhost:5672
 APP_URL=http://localhost:3000
 SCAN_INTERVAL_MINUTES=5
 API_KEY=
 ```
 
-Для email використовував Resend. На безкоштовному плані листи йдуть тільки на власний email — для інших потрібен свій домен.
+SMTP налаштування тепер належать `services/notifier/.env.example`, бо email delivery винесений в окремий сервіс.
 
 ## Тести
 
