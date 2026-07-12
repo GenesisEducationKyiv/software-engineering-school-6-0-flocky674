@@ -1,0 +1,50 @@
+name: Unit Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run generate
+
+      - name: Run unit tests
+        run: npm run test:unit
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/github_release_notifier_test
+          GITHUB_TOKEN: ''
+          NOTIFIER_SERVICE_URL: http://localhost:3002
+          APP_URL: http://localhost:3000
+          API_KEY: ''
+
+      - name: Install notifier dependencies
+        working-directory: services/notifier
+        run: npm ci
+
+      - name: Lint notifier service
+        working-directory: services/notifier
+        run: npm run lint
+
+      - name: Test notifier service
+        working-directory: services/notifier
+        run: npm test
+
+      - name: Build notifier service
+        working-directory: services/notifier
+        run: npm run build

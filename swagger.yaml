@@ -1,0 +1,213 @@
+openapi: 3.0.3
+info:
+  title: GitHub Release Notifier API
+  version: 1.0.0
+  description: Subscribe to email notifications for new GitHub repository releases.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Subscriptions
+
+paths:
+  /api/subscribe:
+    post:
+      tags: [Subscriptions]
+      summary: Subscribe to release notifications
+      description: |
+        Creates a subscription and sends a confirmation email.
+        The subscription is inactive until confirmed via GET /api/confirm/{token}.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscribeRequest'
+            example:
+              email: user@example.com
+              repo: golang/go
+      responses:
+        '200':
+          description: Confirmation email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid email or repo format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Repository not found on GitHub
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Already subscribed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: GitHub API rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/confirm/{token}:
+    get:
+      tags: [Subscriptions]
+      summary: Confirm email subscription
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Subscription confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/unsubscribe/{token}:
+    get:
+      tags: [Subscriptions]
+      summary: Unsubscribe from release notifications
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Successfully unsubscribed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '404':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/subscriptions:
+    get:
+      tags: [Subscriptions]
+      summary: Get all active subscriptions for an email
+      parameters:
+        - name: email
+          in: query
+          required: true
+          schema:
+            type: string
+            format: email
+          example: user@example.com
+      responses:
+        '200':
+          description: List of active subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+        '400':
+          description: Missing email parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+
+  schemas:
+    SubscribeRequest:
+      type: object
+      required: [email, repo]
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        repo:
+          type: string
+          example: golang/go
+          description: GitHub repository in "owner/repo" format
+
+    SubscriptionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        repo:
+          type: string
+          example: golang/go
+        isActive:
+          type: boolean
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
