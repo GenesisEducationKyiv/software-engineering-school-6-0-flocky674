@@ -61,6 +61,10 @@ export class SubscriptionRepository {
     if (!sub) return null;
     return this.deactivate(sub.id);
   }
+
+  async deleteById(id: string): Promise<void> {
+    await prisma.subscription.delete({ where: { id } });
+  }
 }
 
 export class RepositoryRepository {
