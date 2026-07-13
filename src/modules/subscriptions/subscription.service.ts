@@ -5,6 +5,7 @@ import {
 } from './subscription.repository';
 import { GitHubService } from '../github/github.service';
 import { NotifierPort } from '../notifier/notifier.types';
+import { SubscriptionConfirmationSaga } from './subscribe.saga';
 import { parseRepo } from '../../shared/utils/parse-repo';
 import { BadRequestError, ConflictError, NotFoundError } from '../../shared/errors/app-error';
 
@@ -23,12 +24,16 @@ export interface SubscriptionResponse {
 }
 
 export class SubscriptionService {
+  private readonly confirmationSaga: SubscriptionConfirmationSaga;
+
   constructor(
     private readonly subscriptionRepo: SubscriptionRepository,
     private readonly repositoryRepo: RepositoryRepository,
     private readonly githubService: GitHubService,
     private readonly notifierService: NotifierPort,
-  ) {}
+  ) {
+    this.confirmationSaga = new SubscriptionConfirmationSaga(subscriptionRepo, notifierService);
+  }
 
   async subscribe(input: CreateSubscriptionInput): Promise<void> {
     const { email, repo } = input;
@@ -68,12 +73,10 @@ export class SubscriptionService {
       }
     }
 
-    const subscription = await this.subscriptionRepo.create({ email, repositoryId: repository.id });
-
-    await this.notifierService.sendConfirmationEmail({
+    await this.confirmationSaga.run({
       email,
+      repositoryId: repository.id,
       repoFullName: fullName,
-      confirmToken: subscription.confirmToken,
     });
   }
 

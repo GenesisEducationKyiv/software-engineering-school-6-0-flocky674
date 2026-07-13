@@ -44,6 +44,13 @@ app :3000 -> RabbitMQ (exchange "notifications") -> notifier :3002 -> SMTP/MailH
 | `POST` | `/api/emails/confirmation` | Надсилання confirmation email |
 | `POST` | `/api/emails/release` | Надсилання release notification email |
 
+### Розподілена транзакція (оркестрована Saga)
+
+Створення підписки — це розподілена транзакція між `app` (запис у БД) і `notifier`
+(надсилання confirmation email). Її координує оркестрована Saga: якщо крок
+нотифікації падає, щойно створена підписка компенсаційно видаляється. Деталі —
+[docs/ADR-004-orchestrated-saga.md](docs/ADR-004-orchestrated-saga.md).
+
 ## Запуск
 
 ```bash
