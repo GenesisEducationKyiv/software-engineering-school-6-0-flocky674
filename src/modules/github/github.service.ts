@@ -1,7 +1,8 @@
-import { GitHubClient, GitHubRelease, GitHubRepo } from './github.client';
+import { GitHubRelease, GitHubRepo } from './github.client';
+import { GitHubApiPort, ReleaseProviderPort } from './github.ports';
 
-export class GitHubService {
-  constructor(private readonly client: GitHubClient) {}
+export class GitHubService implements ReleaseProviderPort {
+  constructor(private readonly client: GitHubApiPort) {}
 
   verifyRepo(owner: string, name: string): Promise<GitHubRepo> {
     return this.client.getRepo(owner, name);

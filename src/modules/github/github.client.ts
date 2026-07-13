@@ -2,6 +2,12 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import { config } from '../../config/env';
 import { NotFoundError, RateLimitError, ServiceUnavailableError } from '../../shared/errors/app-error';
 import logger from '../../shared/utils/logger';
+import { GitHubApiPort } from './github.ports';
+
+export interface GitHubClientOptions {
+  apiBase: string;
+  token?: string;
+}
 
 export interface GitHubRelease {
   tag_name: string;
@@ -18,21 +24,21 @@ export interface GitHubRepo {
   stargazers_count: number;
 }
 
-export class GitHubClient {
+export class GitHubClient implements GitHubApiPort {
   private readonly http: AxiosInstance;
 
-  constructor() {
+  constructor(options: GitHubClientOptions = { apiBase: config.github.apiBase, token: config.github.token }) {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
     };
 
-    if (config.github.token) {
-      headers['Authorization'] = `Bearer ${config.github.token}`;
+    if (options.token) {
+      headers['Authorization'] = `Bearer ${options.token}`;
     }
 
     this.http = axios.create({
-      baseURL: config.github.apiBase,
+      baseURL: options.apiBase,
       headers,
       timeout: 10_000,
     });
