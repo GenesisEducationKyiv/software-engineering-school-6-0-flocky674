@@ -5,7 +5,7 @@ import { ScannerService } from './modules/scanner/scanner.service';
 import { SubscriptionRepository, RepositoryRepository } from './modules/subscriptions/subscription.repository';
 import { GitHubService } from './modules/github/github.service';
 import { githubClient } from './modules/github/github.client';
-import { notifierPublisher } from './modules/notifier/notifier.publisher';
+import { resolveNotifier } from './modules/notifier/notifier.factory';
 import { config } from './config/env';
 import logger from './shared/utils/logger';
 
@@ -16,7 +16,7 @@ async function main() {
     new RepositoryRepository(),
     new SubscriptionRepository(),
     new GitHubService(githubClient),
-    notifierPublisher,
+    resolveNotifier(),
   );
 
   startScannerJob(scannerService);
