@@ -2,12 +2,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import path from 'path';
 import { buildSubscriptionRoutes } from './modules/subscriptions/subscription.controller';
-import { SubscriptionService } from './modules/subscriptions/subscription.service';
-import { SubscriptionRepository, RepositoryRepository } from './modules/subscriptions/subscription.repository';
-import { GitHubService } from './modules/github/github.service';
-import { githubClient } from './modules/github/github.client';
-import { NotifierService } from './modules/notifier/notifier.service';
-import { notifierPublisher } from './modules/notifier/notifier.publisher';
+import { AppDependencies, createContainer } from './composition-root';
 import { AppError } from './shared/errors/app-error';
 import { config } from './config/env';
 import logger from './shared/utils/logger';
@@ -17,14 +12,9 @@ import {
   recordHttpRequest,
 } from './shared/metrics/prometheus';
 
-const requestStartedAt = new WeakMap<object, bigint>();
+export type { AppDependencies } from './composition-root';
 
-interface AppDependencies {
-  subscriptionRepo?: SubscriptionRepository;
-  repositoryRepo?: RepositoryRepository;
-  githubService?: GitHubService;
-  notifierService?: NotifierService;
-}
+const requestStartedAt = new WeakMap<object, bigint>();
 
 export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   const fastify = Fastify({ logger: false });
@@ -88,16 +78,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     return getMetrics();
   });
 
-  const subscriptionRepo = dependencies.subscriptionRepo ?? new SubscriptionRepository();
-  const repositoryRepo = dependencies.repositoryRepo ?? new RepositoryRepository();
-  const githubService = dependencies.githubService ?? new GitHubService(githubClient);
-  const notifierService = dependencies.notifierService ?? notifierPublisher;
-  const subscriptionService = new SubscriptionService(
-    subscriptionRepo,
-    repositoryRepo,
-    githubService,
-    notifierService,
-  );
+  const { subscriptionService } = createContainer(dependencies);
 
   buildSubscriptionRoutes(fastify, subscriptionService);
 

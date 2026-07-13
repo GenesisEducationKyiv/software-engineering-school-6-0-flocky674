@@ -1,56 +1,65 @@
-import { Subscription, Repository } from '@prisma/client';
-import prisma from '../../shared/db/prisma';
+import { PrismaClient, Subscription, Repository } from '@prisma/client';
+import defaultPrisma from '../../shared/db/prisma';
+import {
+  CreateSubscriptionData,
+  RepositoryRepositoryPort,
+  SubscriptionRepositoryPort,
+  SubscriptionWithRepo,
+  UpsertRepositoryData,
+} from './subscription.ports';
 
-export type SubscriptionWithRepo = Subscription & { repository: Repository };
+export type { SubscriptionWithRepo } from './subscription.ports';
 
-export class SubscriptionRepository {
-  findById(id: string) {
-    return prisma.subscription.findUnique({
+export class SubscriptionRepository implements SubscriptionRepositoryPort {
+  constructor(private readonly prisma: PrismaClient = defaultPrisma) {}
+
+  findById(id: string): Promise<SubscriptionWithRepo | null> {
+    return this.prisma.subscription.findUnique({
       where: { id },
       include: { repository: true },
     });
   }
 
-  findByEmailAndRepo(email: string, repositoryId: string) {
-    return prisma.subscription.findUnique({
+  findByEmailAndRepo(email: string, repositoryId: string): Promise<Subscription | null> {
+    return this.prisma.subscription.findUnique({
       where: { email_repositoryId: { email, repositoryId } },
     });
   }
 
-  findByConfirmToken(token: string) {
-    return prisma.subscription.findUnique({ where: { confirmToken: token } });
+  findByConfirmToken(token: string): Promise<Subscription | null> {
+    return this.prisma.subscription.findUnique({ where: { confirmToken: token } });
   }
 
-  findByUnsubscribeToken(token: string) {
-    return prisma.subscription.findUnique({ where: { unsubscribeToken: token } });
+  findByUnsubscribeToken(token: string): Promise<Subscription | null> {
+    return this.prisma.subscription.findUnique({ where: { unsubscribeToken: token } });
   }
 
   findActiveByEmail(email: string): Promise<SubscriptionWithRepo[]> {
-    return prisma.subscription.findMany({
+    return this.prisma.subscription.findMany({
       where: { email, isActive: true, confirmedAt: { not: null } },
       include: { repository: true },
     });
   }
 
-  findConfirmedByRepositoryId(repositoryId: string) {
-    return prisma.subscription.findMany({
+  findConfirmedByRepositoryId(repositoryId: string): Promise<Subscription[]> {
+    return this.prisma.subscription.findMany({
       where: { repositoryId, isActive: true, confirmedAt: { not: null } },
     });
   }
 
-  create(data: { email: string; repositoryId: string }) {
-    return prisma.subscription.create({ data });
+  create(data: CreateSubscriptionData): Promise<Subscription> {
+    return this.prisma.subscription.create({ data });
   }
 
-  confirm(id: string) {
-    return prisma.subscription.update({
+  confirm(id: string): Promise<Subscription> {
+    return this.prisma.subscription.update({
       where: { id },
       data: { isActive: true, confirmedAt: new Date() },
     });
   }
 
-  deactivate(id: string) {
-    return prisma.subscription.update({
+  deactivate(id: string): Promise<Subscription> {
+    return this.prisma.subscription.update({
       where: { id },
       data: { isActive: false },
     });
@@ -63,13 +72,15 @@ export class SubscriptionRepository {
   }
 }
 
-export class RepositoryRepository {
-  findByFullName(fullName: string) {
-    return prisma.repository.findUnique({ where: { fullName } });
+export class RepositoryRepository implements RepositoryRepositoryPort {
+  constructor(private readonly prisma: PrismaClient = defaultPrisma) {}
+
+  findByFullName(fullName: string): Promise<Repository | null> {
+    return this.prisma.repository.findUnique({ where: { fullName } });
   }
 
-  upsert(data: { fullName: string; owner: string; name: string; lastSeenTag?: string | null }) {
-    return prisma.repository.upsert({
+  upsert(data: UpsertRepositoryData): Promise<Repository> {
+    return this.prisma.repository.upsert({
       where: { fullName: data.fullName },
       create: {
         fullName: data.fullName,
@@ -81,22 +92,22 @@ export class RepositoryRepository {
     });
   }
 
-  updateLastSeenTag(id: string, tag: string) {
-    return prisma.repository.update({
+  updateLastSeenTag(id: string, tag: string): Promise<Repository> {
+    return this.prisma.repository.update({
       where: { id },
       data: { lastSeenTag: tag, lastCheckedAt: new Date() },
     });
   }
 
   async updateLastCheckedAt(id: string): Promise<void> {
-    await prisma.repository.update({
+    await this.prisma.repository.update({
       where: { id },
       data: { lastCheckedAt: new Date() },
     });
   }
 
-  findAllWithConfirmedSubscriptions() {
-    return prisma.repository.findMany({
+  findAllWithConfirmedSubscriptions(): Promise<Repository[]> {
+    return this.prisma.repository.findMany({
       where: {
         subscriptions: {
           some: { isActive: true, confirmedAt: { not: null } },

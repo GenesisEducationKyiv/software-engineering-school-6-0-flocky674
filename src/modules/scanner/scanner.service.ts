@@ -1,15 +1,18 @@
 import { Repository } from '@prisma/client';
-import { RepositoryRepository, SubscriptionRepository } from '../subscriptions/subscription.repository';
-import { GitHubService } from '../github/github.service';
+import {
+  RepositoryRepositoryPort,
+  SubscriptionRepositoryPort,
+} from '../subscriptions/subscription.ports';
+import { ReleaseProviderPort } from '../github/github.ports';
 import { NotifierPort } from '../notifier/notifier.types';
 import { RateLimitError } from '../../shared/errors/app-error';
 import logger from '../../shared/utils/logger';
 
 export class ScannerService {
   constructor(
-    private readonly repositoryRepo: RepositoryRepository,
-    private readonly subscriptionRepo: SubscriptionRepository,
-    private readonly githubService: GitHubService,
+    private readonly repositoryRepo: RepositoryRepositoryPort,
+    private readonly subscriptionRepo: SubscriptionRepositoryPort,
+    private readonly githubService: ReleaseProviderPort,
     private readonly notifierService: NotifierPort,
   ) {}
 
