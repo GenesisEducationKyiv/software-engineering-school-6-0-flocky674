@@ -15,4 +15,9 @@ export const config = {
   rabbitmq: {
     url: process.env.RABBITMQ_URL || 'amqp://localhost:5672',
   },
+
+  grpc: {
+    host: process.env.GRPC_HOST || '0.0.0.0',
+    port: parseInt(process.env.GRPC_PORT || '50051', 10),
+  },
 };

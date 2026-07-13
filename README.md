@@ -44,6 +44,26 @@ app :3000 -> RabbitMQ (exchange "notifications") -> notifier :3002 -> SMTP/MailH
 | `POST` | `/api/emails/confirmation` | Надсилання confirmation email |
 | `POST` | `/api/emails/release` | Надсилання release notification email |
 
+### gRPC-транспорт (app -> notifier)
+
+Виклик `app -> notifier` для email доступний трьома транспортами за спільним
+інтерфейсом `NotifierPort`; обирається змінною `NOTIFIER_TRANSPORT`
+(`broker` | `http` | `grpc`, дефолт `broker`):
+
+- **http** — стара REST-реалізація (`POST /api/emails/*`), лишена для порівняння;
+- **grpc** — контракт `MailVerificationService` у [proto/notifier/v1/mail.proto](proto/notifier/v1/mail.proto),
+  сервер на порту `50051`, кодогенерація через `buf`.
+
+Робота з контрактом:
+
+```bash
+npm run proto:lint      # buf lint
+npm run proto:generate  # buf generate (ts-proto -> src/generated)
+```
+
+Порівняння REST vs gRPC і спосіб заміру throughput — у
+[docs/ADR-005-grpc-notifier-transport.md](docs/ADR-005-grpc-notifier-transport.md).
+
 ## Запуск
 
 ```bash

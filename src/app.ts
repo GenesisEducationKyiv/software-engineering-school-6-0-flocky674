@@ -7,7 +7,7 @@ import { SubscriptionRepository, RepositoryRepository } from './modules/subscrip
 import { GitHubService } from './modules/github/github.service';
 import { githubClient } from './modules/github/github.client';
 import { NotifierService } from './modules/notifier/notifier.service';
-import { notifierPublisher } from './modules/notifier/notifier.publisher';
+import { resolveNotifier } from './modules/notifier/notifier.factory';
 import { AppError } from './shared/errors/app-error';
 import { config } from './config/env';
 import logger from './shared/utils/logger';
@@ -91,7 +91,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   const subscriptionRepo = dependencies.subscriptionRepo ?? new SubscriptionRepository();
   const repositoryRepo = dependencies.repositoryRepo ?? new RepositoryRepository();
   const githubService = dependencies.githubService ?? new GitHubService(githubClient);
-  const notifierService = dependencies.notifierService ?? notifierPublisher;
+  const notifierService = dependencies.notifierService ?? resolveNotifier();
   const subscriptionService = new SubscriptionService(
     subscriptionRepo,
     repositoryRepo,

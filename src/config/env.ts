@@ -13,6 +13,9 @@ export const config = {
 
   notifierService: {
     url: process.env.NOTIFIER_SERVICE_URL || 'http://localhost:3002',
+    grpcUrl: process.env.NOTIFIER_GRPC_URL || 'localhost:50051',
+    // Transport for the app -> notifier call: 'broker' | 'http' | 'grpc'
+    transport: process.env.NOTIFIER_TRANSPORT || 'broker',
   },
 
   rabbitmq: {

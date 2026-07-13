@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package notifier.v1;
+
+// MailVerificationService is the internal contract between the API service
+// (app) and the notifier service for sending transactional emails.
+service MailVerificationService {
+  // SendConfirmationEmail delivers a subscription confirmation email.
+  rpc SendConfirmationEmail(SendConfirmationEmailRequest) returns (SendConfirmationEmailResponse);
+
+  // SendReleaseNotification delivers a new-release notification email.
+  rpc SendReleaseNotification(SendReleaseNotificationRequest) returns (SendReleaseNotificationResponse);
+}
+
+message SendConfirmationEmailRequest {
+  string email = 1;
+  string repo_full_name = 2;
+  string confirm_token = 3;
+  string app_url = 4;
+}
+
+message SendConfirmationEmailResponse {
+  bool accepted = 1;
+}
+
+message SendReleaseNotificationRequest {
+  string email = 1;
+  string repo_full_name = 2;
+  string tag_name = 3;
+  string release_name = 4;
+  string release_url = 5;
+  string unsubscribe_token = 6;
+  string app_url = 7;
+}
+
+message SendReleaseNotificationResponse {
+  bool accepted = 1;
+}
